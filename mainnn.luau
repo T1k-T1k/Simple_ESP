@@ -40,7 +40,7 @@ _G.ArrowTransparency = 0.7
 _G.TextColor = Color3.fromRGB(255, 80, 10)
 _G.TextSize = 14
 _G.TextTransparency = 0.7
-_G.TextFont = Drawing.new("Font", {Data = game:HttpGet("https://raw.githubusercontent.com/JohnnyHappens/Fonts/main/Inconsolata-Regular.json")})
+_G.TextFont = Font.new("rbxasset://fonts/families/Inconsolata.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
 _G.DisableKey = Enum.KeyCode.Q
 
 local function CreateESP()
