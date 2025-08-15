@@ -52,15 +52,14 @@ _G.TextTransparency = 0.7
 _G.TextFont = Drawing.Fonts.Monospace
 _G.ShowDistance = true
 
--- Box ESP Settings
-_G.BoxESPEnabled = true
-_G.BoxESPVisible = true
-_G.BoxColor = Color3.fromRGB(255, 80, 10)
-_G.BoxThickness = 2
-_G.BoxTransparency = 0.7
-_G.BoxFilled = true
-_G.BoxFillColor = Color3.fromRGB(255, 80, 10)
-_G.BoxFillTransparency = 0.6
+-- Highlight Settings
+_G.HighlightEnabled = true
+_G.HighlightVisible = true
+_G.HighlightFillColor = Color3.fromRGB(255, 80, 10)
+_G.HighlightOutlineColor = Color3.fromRGB(255, 255, 255)
+_G.HighlightFillTransparency = 0.6
+_G.HighlightOutlineTransparency = 0.3
+_G.HighlightDepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 _G.ArrowsEnabled = true
 _G.ArrowsVisible = true
 _G.ArrowColor = Color3.fromRGB(255, 80, 10)
@@ -83,8 +82,7 @@ local function CreatePlayerESP(player)
         tracer = nil,
         text = nil,
         distanceText = nil,
-        box = {},
-        boxFill = nil,
+        highlight = nil,
         arrow = {}
     }
     
@@ -99,15 +97,20 @@ local function CreatePlayerESP(player)
         elements.text.Font = Drawing.Fonts.Monospace
     end
     
-    -- Create Box ESP
-    if _G.BoxESPEnabled then
-        -- Create outline (4 lines)
-        for i = 1, 4 do
-            elements.box[i] = Drawing.new("Line")
-        end
-        -- Create fill (quad)
-        if _G.BoxFilled then
-            elements.boxFill = Drawing.new("Quad")
+    -- Create Highlight ESP
+    if _G.HighlightEnabled then
+        elements.highlight = Instance.new("Highlight")
+        elements.highlight.FillColor = _G.HighlightFillColor
+        elements.highlight.OutlineColor = _G.HighlightOutlineColor
+        elements.highlight.FillTransparency = _G.HighlightFillTransparency
+        elements.highlight.OutlineTransparency = _G.HighlightOutlineTransparency
+        elements.highlight.DepthMode = _G.HighlightDepthMode
+        elements.highlight.Enabled = _G.HighlightVisible
+        
+        -- Wait for character to load and apply highlight
+        if player.Character then
+            elements.highlight.Adornee = player.Character
+            elements.highlight.Parent = player.Character
         end
     end
     
@@ -165,57 +168,18 @@ local function CreatePlayerESP(player)
             end
         end
         
-        -- Update Box ESP
-        if elements.box and _G.BoxESPEnabled then
-            if rootOnScreen and headOnScreen then
-                local boxHeight = math.abs(headVector.Y - rootVector.Y)
-                local boxWidth = boxHeight * 0.6
-                
-                local topLeft = Vector2.new(rootVector.X - boxWidth/2, headVector.Y)
-                local topRight = Vector2.new(rootVector.X + boxWidth/2, headVector.Y)
-                local bottomLeft = Vector2.new(rootVector.X - boxWidth/2, rootVector.Y)
-                local bottomRight = Vector2.new(rootVector.X + boxWidth/2, rootVector.Y)
-                
-                -- Update fill first (behind outline)
-                if elements.boxFill and _G.BoxFilled then
-                    elements.boxFill.PointA = topLeft
-                    elements.boxFill.PointB = topRight
-                    elements.boxFill.PointC = bottomRight
-                    elements.boxFill.PointD = bottomLeft
-                    elements.boxFill.Color = _G.BoxFillColor
-                    elements.boxFill.Transparency = _G.BoxFillTransparency
-                    elements.boxFill.Visible = _G.BoxESPVisible
+        -- Update Highlight ESP
+        if elements.highlight and _G.HighlightEnabled then
+            if player.Character then
+                elements.highlight.Adornee = player.Character
+                if not elements.highlight.Parent then
+                    elements.highlight.Parent = player.Character
                 end
-                
-                -- Update outline
-                -- Top line
-                elements.box[1].From = topLeft
-                elements.box[1].To = topRight
-                
-                -- Right line
-                elements.box[2].From = topRight
-                elements.box[2].To = bottomRight
-                
-                -- Bottom line
-                elements.box[3].From = bottomRight
-                elements.box[3].To = bottomLeft
-                
-                -- Left line
-                elements.box[4].From = bottomLeft
-                elements.box[4].To = topLeft
-                
-                for i = 1, 4 do
-                    elements.box[i].Color = _G.BoxColor
-                    elements.box[i].Thickness = _G.BoxThickness
-                    elements.box[i].Transparency = _G.BoxTransparency
-                    elements.box[i].Visible = _G.BoxESPVisible
-                end
-            else
-                -- Hide box when player is off-screen
-                if elements.boxFill then elements.boxFill.Visible = false end
-                for i = 1, 4 do
-                    elements.box[i].Visible = false
-                end
+                elements.highlight.Enabled = _G.HighlightVisible
+                elements.highlight.FillColor = _G.HighlightFillColor
+                elements.highlight.OutlineColor = _G.HighlightOutlineColor
+                elements.highlight.FillTransparency = _G.HighlightFillTransparency
+                elements.highlight.OutlineTransparency = _G.HighlightOutlineTransparency
             end
         end
         
@@ -332,10 +296,7 @@ local function CreatePlayerESP(player)
         if elements.tracer then elements.tracer:Remove() end
         if elements.text then elements.text:Remove() end
         if elements.distanceText then elements.distanceText:Remove() end
-        if elements.boxFill then elements.boxFill:Remove() end
-        for i = 1, 4 do
-            if elements.box[i] then elements.box[i]:Remove() end
-        end
+        if elements.highlight then elements.highlight:Destroy() end
         for i = 1, 3 do
             if elements.arrow[i] then elements.arrow[i]:Remove() end
         end
@@ -427,7 +388,7 @@ UserInputService.InputBegan:Connect(function(Input)
         -- Toggle all ESP
         _G.TracersVisible = not _G.TracersVisible
         _G.ESPVisible = not _G.ESPVisible
-        _G.BoxESPVisible = not _G.BoxESPVisible
+        _G.HighlightVisible = not _G.HighlightVisible
         _G.ArrowsVisible = not _G.ArrowsVisible
         
         if _G.SendNotifications then
@@ -437,14 +398,14 @@ UserInputService.InputBegan:Connect(function(Input)
                 Duration = 3;
             })
         end
-    elseif Input.KeyCode == _G.ToggleBoxKey then
-        -- Toggle box ESP only
-        _G.BoxESPVisible = not _G.BoxESPVisible
+    elseif Input.KeyCode == _G.ToggleHighlightKey then
+        -- Toggle highlight ESP only
+        _G.HighlightVisible = not _G.HighlightVisible
         
         if _G.SendNotifications then
             game:GetService("StarterGui"):SetCore("SendNotification",{
                 Title = "ESP System";
-                Text = "Box ESP: " .. tostring(_G.BoxESPVisible);
+                Text = "Highlight ESP: " .. tostring(_G.HighlightVisible);
                 Duration = 3;
             })
         end
@@ -471,8 +432,9 @@ if _G.DefaultSettings then
     _G.ESPVisible = true
     _G.TextColor = Color3.fromRGB(40, 90, 255)
     _G.TextSize = 14
-    _G.BoxESPVisible = true
-    _G.BoxColor = Color3.fromRGB(40, 90, 255)
+    _G.HighlightVisible = true
+    _G.HighlightFillColor = Color3.fromRGB(40, 90, 255)
+    _G.HighlightOutlineColor = Color3.fromRGB(255, 255, 255)
     _G.ArrowsVisible = true
     _G.ArrowColor = Color3.fromRGB(40, 90, 255)
 end
@@ -489,5 +451,5 @@ end
 print("ESP System Controls:")
 print("E - Change tracer mode")
 print("Q - Toggle all ESP")
-print("R - Toggle box ESP")
+print("R - Toggle highlight ESP")
 print("T - Toggle arrow ESP")
