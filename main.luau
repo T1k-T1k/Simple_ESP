@@ -52,7 +52,14 @@ _G.TextTransparency = 0.7
 _G.TextFont = Drawing.Fonts.Monospace
 _G.ShowDistance = true
 
--- Arrow Settings
+-- Highlight Settings
+_G.HighlightEnabled = true
+_G.HighlightVisible = true
+_G.HighlightFillColor = Color3.fromRGB(255, 80, 10)
+_G.HighlightOutlineColor = Color3.fromRGB(255, 255, 255)
+_G.HighlightFillTransparency = 0.6
+_G.HighlightOutlineTransparency = 0.3
+_G.HighlightDepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 _G.ArrowsEnabled = true
 _G.ArrowsVisible = true
 _G.ArrowColor = Color3.fromRGB(255, 80, 10)
@@ -75,6 +82,7 @@ local function CreatePlayerESP(player)
         tracer = nil,
         text = nil,
         distanceText = nil,
+        highlight = nil,
         arrow = {}
     }
     
@@ -87,6 +95,23 @@ local function CreatePlayerESP(player)
     if _G.ESPEnabled then
         elements.text = Drawing.new("Text")
         elements.text.Font = Drawing.Fonts.Monospace
+    end
+    
+    -- Create Highlight ESP
+    if _G.HighlightEnabled then
+        elements.highlight = Instance.new("Highlight")
+        elements.highlight.FillColor = _G.HighlightFillColor
+        elements.highlight.OutlineColor = _G.HighlightOutlineColor
+        elements.highlight.FillTransparency = _G.HighlightFillTransparency
+        elements.highlight.OutlineTransparency = _G.HighlightOutlineTransparency
+        elements.highlight.DepthMode = _G.HighlightDepthMode
+        elements.highlight.Enabled = _G.HighlightVisible
+        
+        -- Wait for character to load and apply highlight
+        if player.Character then
+            elements.highlight.Adornee = player.Character
+            elements.highlight.Parent = player.Character
+        end
     end
     
     -- Create Arrow ESP (triangle pointing to player)
@@ -140,6 +165,21 @@ local function CreatePlayerESP(player)
                 elements.tracer.Visible = _G.TracersVisible
             else
                 elements.tracer.Visible = false
+            end
+        end
+        
+        -- Update Highlight ESP
+        if elements.highlight and _G.HighlightEnabled then
+            if player.Character then
+                elements.highlight.Adornee = player.Character
+                if not elements.highlight.Parent then
+                    elements.highlight.Parent = player.Character
+                end
+                elements.highlight.Enabled = _G.HighlightVisible
+                elements.highlight.FillColor = _G.HighlightFillColor
+                elements.highlight.OutlineColor = _G.HighlightOutlineColor
+                elements.highlight.FillTransparency = _G.HighlightFillTransparency
+                elements.highlight.OutlineTransparency = _G.HighlightOutlineTransparency
             end
         end
         
@@ -256,6 +296,7 @@ local function CreatePlayerESP(player)
         if elements.tracer then elements.tracer:Remove() end
         if elements.text then elements.text:Remove() end
         if elements.distanceText then elements.distanceText:Remove() end
+        if elements.highlight then elements.highlight:Destroy() end
         for i = 1, 3 do
             if elements.arrow[i] then elements.arrow[i]:Remove() end
         end
@@ -347,12 +388,24 @@ UserInputService.InputBegan:Connect(function(Input)
         -- Toggle all ESP
         _G.TracersVisible = not _G.TracersVisible
         _G.ESPVisible = not _G.ESPVisible
+        _G.HighlightVisible = not _G.HighlightVisible
         _G.ArrowsVisible = not _G.ArrowsVisible
         
         if _G.SendNotifications then
             game:GetService("StarterGui"):SetCore("SendNotification",{
                 Title = "ESP System";
                 Text = "ESP visibility: " .. tostring(_G.ESPVisible);
+                Duration = 3;
+            })
+        end
+    elseif Input.KeyCode == _G.ToggleHighlightKey then
+        -- Toggle highlight ESP only
+        _G.HighlightVisible = not _G.HighlightVisible
+        
+        if _G.SendNotifications then
+            game:GetService("StarterGui"):SetCore("SendNotification",{
+                Title = "ESP System";
+                Text = "Highlight ESP: " .. tostring(_G.HighlightVisible);
                 Duration = 3;
             })
         end
@@ -379,6 +432,9 @@ if _G.DefaultSettings then
     _G.ESPVisible = true
     _G.TextColor = Color3.fromRGB(40, 90, 255)
     _G.TextSize = 14
+    _G.HighlightVisible = true
+    _G.HighlightFillColor = Color3.fromRGB(40, 90, 255)
+    _G.HighlightOutlineColor = Color3.fromRGB(255, 255, 255)
     _G.ArrowsVisible = true
     _G.ArrowColor = Color3.fromRGB(40, 90, 255)
 end
@@ -395,4 +451,5 @@ end
 print("ESP System Controls:")
 print("E - Change tracer mode")
 print("Q - Toggle all ESP")
-print("T - Toggle arrow ESPP")
+print("R - Toggle highlight ESP")
+print("T - Toggle arrow ESP")
