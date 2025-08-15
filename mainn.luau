@@ -309,9 +309,8 @@ local function CreateGUI()
         {name = "ESP Enabled", setting = "Enabled", yPos = 0},
         {name = "Show Boxes", setting = "BoxesEnabled", yPos = 35},
         {name = "Show Names", setting = "ShowName", yPos = 70},
-        {name = "Show Health Bars", setting = "HealthBarEnabled", yPos = 105},
-        {name = "Show Tracers", setting = "TracersEnabled", yPos = 140},
-        {name = "Rainbow Mode", setting = "RainbowMode", yPos = 175}
+        {name = "Show Tracers", setting = "TracersEnabled", yPos = 105},
+        {name = "Rainbow Mode", setting = "RainbowMode", yPos = 140}
     }
     
     for _, toggle in ipairs(toggles) do
@@ -409,8 +408,8 @@ local function CreateGUI()
         return DropdownFrame
     end
     
-    CreateDropdown("Tracer Origin", "TracerOrigin", {"Bottom", "Top", "Center"}, 210, 10)
-    CreateDropdown("Box Style", "BoxStyle", {"Full", "Corner"}, 245, 1)
+    CreateDropdown("Tracer Origin", "TracerOrigin", {"Bottom", "Top", "Center"}, 175, 10)
+    CreateDropdown("Box Style", "BoxStyle", {"Full", "Corner"}, 210, 1)
     
     local function CreateSlider(name, setting, min, max, yPos)
         local SliderFrame = Instance.new("Frame")
@@ -566,7 +565,7 @@ local function CreateGUI()
         return SliderFrame
     end
     
-    CreateSlider("Max Display Distance", "MaxDisplayDistance", 100, 2000, 280)
+    CreateSlider("Max Display Distance", "MaxDisplayDistance", 100, 2000, 245)
     
     return {
         ScreenGui = ScreenGui,
@@ -612,7 +611,6 @@ local function CreateESP(player)
             Bottom = Drawing.new("Line")
         },
         Name = Drawing.new("Text"),
-        HealthBar = Drawing.new("Square"),
         Tracer = Drawing.new("Line")
     }
     
@@ -628,12 +626,6 @@ local function CreateESP(player)
     ESP_Data.Name.Center = true
     ESP_Data.Name.Outline = true
     ESP_Data.Name.Font = ESP.TextFont
-    
-    ESP_Data.HealthBar.Visible = false
-    ESP_Data.HealthBar.Thickness = ESP.HealthBarThickness
-    ESP_Data.HealthBar.Color = ESP.HealthGreenColor
-    ESP_Data.HealthBar.Filled = true
-    ESP_Data.HealthBar.Transparency = 1
     
     ESP_Data.Tracer.Visible = false
     ESP_Data.Tracer.Color = ESP.ESPColor
@@ -830,25 +822,6 @@ local function UpdateESP()
                 ESP_Data.Name.Visible = false
             end
             
-            -- Health Bar
-            if ESP.HealthBarEnabled and Health and MaxHealth then
-                local HealthPercent = Health / MaxHealth
-                local healthBarHeight = ScreenSize.Y * scaleFactor
-                
-                ESP_Data.HealthBar.Visible = true
-                ESP_Data.HealthBar.Position = Vector2.new(
-                    ScreenPosition.X - ESP.HealthBarOffset - ESP.HealthBarThickness,
-                    ScreenPosition.Y + healthBarHeight * (1 - HealthPercent)
-                )
-                ESP_Data.HealthBar.Size = Vector2.new(
-                    ESP.HealthBarThickness,
-                    healthBarHeight * HealthPercent
-                )
-                ESP_Data.HealthBar.Color = ESP.HealthGreenColor:Lerp(ESP.HealthRedColor, 1 - HealthPercent)
-            else
-                ESP_Data.HealthBar.Visible = false
-            end
-            
             -- Tracers
             if ESP.TracersEnabled then
                 ESP_Data.Tracer.From = GetTracerOrigin()
@@ -864,7 +837,6 @@ local function UpdateESP()
                 line.Visible = false
             end
             ESP_Data.Name.Visible = false
-            ESP_Data.HealthBar.Visible = false
             ESP_Data.Tracer.Visible = false
         end
     end
@@ -891,7 +863,6 @@ local function HandlePlayerRemoval(player)
             line:Remove()
         end
         ESPInstances[player].Name:Remove()
-        ESPInstances[player].HealthBar:Remove()
         ESPInstances[player].Tracer:Remove()
         ESPInstances[player] = nil
     end
@@ -908,32 +879,6 @@ end)
 
 -- Initialize GUI and ESP
 local GUI = CreateGUI()
-
--- Target Frame for nearby players
-local targetGui = Instance.new("ScreenGui")
-targetGui.Name = "TargetGui"
-targetGui.Parent = game:GetService("CoreGui")
-
-local targetFrame = Instance.new("Frame")
-targetFrame.Size = UDim2.new(0, 250, 0, 40)
-targetFrame.Position = UDim2.new(0.5, -125, 0, 10)
-targetFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-targetFrame.BorderSizePixel = 0
-targetFrame.Visible = false
-targetFrame.Parent = targetGui
-
-local targetCorner = Instance.new("UICorner")
-targetCorner.CornerRadius = UDim.new(0, 8)
-targetCorner.Parent = targetFrame
-
-local targetLabel = Instance.new("TextLabel")
-targetLabel.Size = UDim2.new(1, 0, 1, 0)
-targetLabel.BackgroundTransparency = 1
-targetLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-targetLabel.Font = Enum.Font.SourceSansBold
-targetLabel.TextSize = 16
-targetLabel.Text = "Target: Unknown HP: 0/0"
-targetLabel.Parent = targetFrame
 
 -- Modern Notification Function
 local function ShowNotification(message, duration)
@@ -982,32 +927,6 @@ end
 local nearbyPlayers = {}
 local notificationCooldown = false
 
-local function UpdateTargetFrame()
-    local closestPlayer = nil
-    local closestDistance = math.huge
-
-    for player, _ in pairs(nearbyPlayers) do
-        local rootPart = player.PrimaryPart or player:FindFirstChild("HumanoidRootPart")
-        local localRoot = LocalPlayer.Character and (LocalPlayer.Character.PrimaryPart or LocalPlayer.Character:FindFirstChild("HumanoidRootPart"))
-        
-        if rootPart and localRoot then
-            local distance = (rootPart.Position - localRoot.Position).Magnitude
-            if distance < closestDistance then
-                closestDistance = distance
-                closestPlayer = player
-            end
-        end
-    end
-
-    if closestPlayer then
-        local health, maxHealth = GetHealth(closestPlayer)
-        targetLabel.Text = string.format("Target: %s HP: %d/%d", closestPlayer.Name, math.floor(health), math.floor(maxHealth))
-        targetFrame.Visible = true
-    else
-        targetFrame.Visible = false
-    end
-end
-
 -- Check for nearby players
 local function CheckNearbyPlayers()
     local entitiesToCheck = {}
@@ -1049,7 +968,6 @@ local function CheckNearbyPlayers()
             end
         end
     end
-    UpdateTargetFrame()
 end
 
 -- Main loop
@@ -1111,18 +1029,14 @@ game:BindToClose(function()
             line:Remove()
         end
         esp.Name:Remove()
-        esp.HealthBar:Remove()
         esp.Tracer:Remove()
     end
     if GUI and GUI.ScreenGui then
         GUI.ScreenGui:Destroy()
     end
-    if targetGui then
-        targetGui:Destroy()
-    end
 end)
 
 -- Show the initial notification
 task.spawn(function()
-    ShowNotification("Simplified ESP Loaded!", 3)
+    ShowNotification("Simplified ESP Loaded!!!", 3)
 end)
