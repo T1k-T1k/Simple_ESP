@@ -51,7 +51,6 @@ _G.OutlineColor = Color3.fromRGB(0, 0, 0)
 _G.TextTransparency = 0.7
 _G.TextFont = Drawing.Fonts.Monospace
 _G.ShowDistance = true
-_G.ShowHealth = true
 
 -- Arrow Settings
 _G.ArrowsEnabled = true
@@ -75,6 +74,7 @@ local function CreatePlayerESP(player)
     local elements = {
         tracer = nil,
         text = nil,
+        distanceText = nil,
         arrow = {}
     }
     
@@ -154,40 +154,62 @@ local function CreatePlayerESP(player)
             elements.text.Font = _G.TextFont
             
             if headOnScreen then
+                -- Show name above head and distance below
                 elements.text.Position = Vector2.new(headVector.X, headVector.Y - 30)
-                
-                local displayText = player.Name
-                if _G.ShowDistance then
-                    displayText = "[" .. math.floor(distance) .. "] " .. displayText
-                end
-                if _G.ShowHealth and humanoid then
-                    displayText = displayText .. " [" .. math.floor(humanoid.Health) .. "]"
-                end
-                
-                elements.text.Text = displayText
+                elements.text.Text = player.Name
                 elements.text.Visible = _G.ESPVisible
             else
                 elements.text.Visible = false
             end
         end
         
-        -- Update Arrow ESP (for off-screen players) - FIXED
+        -- Create distance text separately below name
+        if not elements.distanceText and _G.ShowDistance then
+            elements.distanceText = Drawing.new("Text")
+            elements.distanceText.Font = Drawing.Fonts.Monospace
+        end
+        
+        if elements.distanceText and _G.ShowDistance then
+            elements.distanceText.Size = _G.TextSize - 2
+            elements.distanceText.Center = _G.Center
+            elements.distanceText.Outline = _G.Outline
+            elements.distanceText.OutlineColor = _G.OutlineColor
+            elements.distanceText.Color = _G.TextColor
+            elements.distanceText.Transparency = _G.TextTransparency
+            elements.distanceText.Font = _G.TextFont
+            
+            if headOnScreen then
+                elements.distanceText.Position = Vector2.new(headVector.X, headVector.Y - 15)
+                elements.distanceText.Text = "[" .. math.floor(distance) .. "]"
+                elements.distanceText.Visible = _G.ESPVisible
+            else
+                elements.distanceText.Visible = false
+            end
+        end
+        
+        -- Update Arrow ESP (for off-screen players) - FIXED PROPERLY
         if elements.arrow and _G.ArrowsEnabled then
             if not rootOnScreen then
                 local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
                 
-                -- Calculate real world direction from local player to target player
+                -- Get camera's look direction and right direction
+                local cameraCFrame = Camera.CFrame
+                local cameraLook = cameraCFrame.LookVector
+                local cameraRight = cameraCFrame.RightVector
+                
+                -- Calculate direction from local player to target player in world space
                 local localRootPart = localCharacter.HumanoidRootPart
-                local worldDirection = (rootPosition - localRootPart.Position)
+                local worldDirection = (rootPosition - localRootPart.Position).Unit
                 
-                -- Convert world direction to camera space
-                local cameraDirection = Camera.CFrame:VectorToObjectSpace(worldDirection)
+                -- Project world direction onto camera's right and forward vectors
+                local rightDot = worldDirection:Dot(cameraRight)
+                local forwardDot = worldDirection:Dot(cameraLook)
                 
-                -- Project to 2D screen direction
-                local direction2D = Vector2.new(cameraDirection.X, -cameraDirection.Z).Unit
+                -- Create 2D direction (right = X, forward = -Y because screen Y is inverted)
+                local direction2D = Vector2.new(rightDot, -forwardDot).Unit
                 
                 -- Position arrow on edge of screen
-                local edgeDistance = math.min(Camera.ViewportSize.X, Camera.ViewportSize.Y) * 0.4
+                local edgeDistance = math.min(Camera.ViewportSize.X, Camera.ViewportSize.Y) * 0.3
                 local arrowPos = screenCenter + direction2D * edgeDistance
                 
                 -- Clamp to screen bounds with margin
@@ -233,6 +255,7 @@ local function CreatePlayerESP(player)
         connection:Disconnect()
         if elements.tracer then elements.tracer:Remove() end
         if elements.text then elements.text:Remove() end
+        if elements.distanceText then elements.distanceText:Remove() end
         for i = 1, 3 do
             if elements.arrow[i] then elements.arrow[i]:Remove() end
         end
