@@ -70,7 +70,7 @@ local function CreateGUI()
     local startPos
     
     DragHitbox.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
             dragStart = input.Position
             startPos = MainFrame.Position
@@ -84,7 +84,7 @@ local function CreateGUI()
     end)
     
     DragHitbox.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement then
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
             dragInput = input
         end
     end)
@@ -99,6 +99,39 @@ local function CreateGUI()
                 startPos.Y.Offset + delta.Y
             )
         end
+    end)
+    
+    -- Additional touch support
+    UserInputService.TouchStarted:Connect(function(touch, gameProcessed)
+        if not gameProcessed and MainFrame and MainFrame.AbsolutePosition then
+            local touchPos = Vector2.new(touch.Position.X, touch.Position.Y)
+            local framePos = MainFrame.AbsolutePosition
+            local frameSize = MainFrame.AbsoluteSize
+            
+            -- Check if touch is within the title bar area
+            if touchPos.X >= framePos.X and touchPos.X <= framePos.X + frameSize.X and
+               touchPos.Y >= framePos.Y and touchPos.Y <= framePos.Y + 30 then
+                dragging = true
+                dragStart = touch.Position
+                startPos = MainFrame.Position
+            end
+        end
+    end)
+    
+    UserInputService.TouchMoved:Connect(function(touch, gameProcessed)
+        if dragging and not gameProcessed then
+            local delta = touch.Position - dragStart
+            MainFrame.Position = UDim2.new(
+                startPos.X.Scale,
+                startPos.X.Offset + delta.X,
+                startPos.Y.Scale,
+                startPos.Y.Offset + delta.Y
+            )
+        end
+    end)
+    
+    UserInputService.TouchEnded:Connect(function(touch, gameProcessed)
+        dragging = false
     end)
     
     local MainCorner = Instance.new("UICorner")
@@ -148,6 +181,11 @@ local function CreateGUI()
         ScreenGui:Destroy()
     end)
     
+    -- Touch support for close button
+    CloseButton.TouchTap:Connect(function()
+        ScreenGui:Destroy()
+    end)
+    
     local MinimizeButton = Instance.new("TextButton")
     MinimizeButton.Name = "MinimizeButton"
     MinimizeButton.Size = UDim2.new(0, 30, 0, 30)
@@ -166,6 +204,16 @@ local function CreateGUI()
     
     local minimized = false
     MinimizeButton.MouseButton1Click:Connect(function()
+        minimized = not minimized
+        if minimized then
+            TweenService:Create(MainFrame, TweenInfo.new(0.3), {Size = UDim2.new(0, 250, 0, 30)}):Play()
+        else
+            TweenService:Create(MainFrame, TweenInfo.new(0.3), {Size = UDim2.new(0, 250, 0, 300)}):Play()
+        end
+    end)
+    
+    -- Touch support for minimize button
+    MinimizeButton.TouchTap:Connect(function()
         minimized = not minimized
         if minimized then
             TweenService:Create(MainFrame, TweenInfo.new(0.3), {Size = UDim2.new(0, 250, 0, 30)}):Play()
@@ -242,6 +290,13 @@ local function CreateGUI()
         ToggleHitbox.Parent = ToggleButton
         
         ToggleHitbox.MouseButton1Click:Connect(function()
+            ESP[setting] = not ESP[setting]
+            ToggleButton.BackgroundColor3 = ESP[setting] and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(170, 0, 0)
+            TweenService:Create(ToggleCircle, TweenInfo.new(0.2), {Position = ESP[setting] and UDim2.new(0.6, 0, 0, 2) or UDim2.new(0, 2, 0, 2)}):Play()
+        end)
+        
+        -- Touch support for toggles
+        ToggleHitbox.TouchTap:Connect(function()
             ESP[setting] = not ESP[setting]
             ToggleButton.BackgroundColor3 = ESP[setting] and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(170, 0, 0)
             TweenService:Create(ToggleCircle, TweenInfo.new(0.2), {Position = ESP[setting] and UDim2.new(0.6, 0, 0, 2) or UDim2.new(0, 2, 0, 2)}):Play()
@@ -333,9 +388,21 @@ local function CreateGUI()
                 DropdownButton.Text = option
                 DropdownList.Visible = false
             end)
+            
+            -- Touch support for dropdown options
+            OptionButton.TouchTap:Connect(function()
+                ESP[setting] = option
+                DropdownButton.Text = option
+                DropdownList.Visible = false
+            end)
         end
         
         DropdownButton.MouseButton1Click:Connect(function()
+            DropdownList.Visible = not DropdownList.Visible
+        end)
+        
+        -- Touch support for dropdown button
+        DropdownButton.TouchTap:Connect(function()
             DropdownList.Visible = not DropdownList.Visible
         end)
         
@@ -425,6 +492,53 @@ local function CreateGUI()
             value = math.floor(value)
             ESP[setting] = value
             SliderLabel.Text = name..": "..value
+        end)
+        
+        -- Touch support for slider
+        UserInputService.TouchStarted:Connect(function(touch, gameProcessed)
+            if not gameProcessed and SliderBar then
+                local touchPos = Vector2.new(touch.Position.X, touch.Position.Y)
+                local barPos = SliderBar.AbsolutePosition
+                local barSize = SliderBar.AbsoluteSize
+                
+                -- Check if touch is within slider area
+                if touchPos.X >= barPos.X and touchPos.X <= barPos.X + barSize.X and
+                   touchPos.Y >= barPos.Y and touchPos.Y <= barPos.Y + barSize.Y then
+                    isDragging = true
+                    barAbsPos = barPos.X
+                    barAbsSize = barSize.X
+                    
+                    local position = (touchPos.X - barAbsPos) / barAbsSize
+                    position = math.clamp(position, 0, 1)
+                    
+                    SliderFill.Size = UDim2.new(position, 0, 1, 0)
+                    SliderKnob.Position = UDim2.new(position, -8, 0.5, -8)
+                    
+                    local value = min + (max - min) * position
+                    value = math.floor(value)
+                    ESP[setting] = value
+                    SliderLabel.Text = name..": "..value
+                end
+            end
+        end)
+        
+        UserInputService.TouchMoved:Connect(function(touch, gameProcessed)
+            if isDragging and not gameProcessed then
+                local position = (touch.Position.X - barAbsPos) / barAbsSize
+                position = math.clamp(position, 0, 1)
+                
+                SliderFill.Size = UDim2.new(position, 0, 1, 0)
+                SliderKnob.Position = UDim2.new(position, -8, 0.5, -8)
+                
+                local value = min + (max - min) * position
+                value = math.floor(value)
+                ESP[setting] = value
+                SliderLabel.Text = name..": "..value
+            end
+        end)
+        
+        UserInputService.TouchEnded:Connect(function(touch, gameProcessed)
+            isDragging = false
         end)
         
         UserInputService.InputChanged:Connect(function(input)
