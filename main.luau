@@ -179,8 +179,8 @@ local function CreatePlayerESP(player)
             elements.distanceText.Font = _G.TextFont
             
             if headOnScreen then
-                elements.distanceText.Position = Vector2.new(headVector.X, headVector.Y - 10)
-                elements.distanceText.Text = math.floor(distance) .. "m"
+                elements.distanceText.Position = Vector2.new(headVector.X, headVector.Y - 15)
+                elements.distanceText.Text = "[" .. math.floor(distance) .. "]"
                 elements.distanceText.Visible = _G.ESPVisible
             else
                 elements.distanceText.Visible = false
