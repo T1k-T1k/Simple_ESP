@@ -395,4 +395,4 @@ end
 print("ESP System Controls:")
 print("E - Change tracer mode")
 print("Q - Toggle all ESP")
-print("T - Toggle arrow ESP")
+print("T - Toggle arrow ESPP")
