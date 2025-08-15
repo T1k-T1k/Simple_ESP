@@ -579,14 +579,17 @@ local function IsPlayerValid(player)
     if not player then return false end
     if not player.Name then return false end
     
+    -- Проверяем, что это не NPC или bot
     if player.Name:sub(1, 1) == "(" or player.Name:sub(1, 9) == "Humanoid_" then
         return false
     end
     
+    -- Проверяем, что это не наш персонаж
     if LocalPlayer and LocalPlayer.Character and player == LocalPlayer.Character then
         return false
     end
     
+    -- Проверяем имя игрока
     local playerName = LocalPlayer and LocalPlayer.Name
     if player.Name == playerName then
         return false
@@ -643,12 +646,14 @@ local function GetHealth(player)
     local health = 100
     local maxHealth = 100
     
+    -- Ищем Humanoid в персонаже
     local humanoid = player:FindFirstChildOfClass("Humanoid")
     if humanoid then
         health = humanoid.Health
         maxHealth = humanoid.MaxHealth
     end
     
+    -- Проверяем атрибуты здоровья
     if player:GetAttribute("Health") then
         health = player:GetAttribute("Health")
     end
@@ -671,7 +676,22 @@ end
 
 -- Update ESP function
 local function UpdateESP()
-    for _, player in pairs(workspace.Entities:GetChildren()) do
+    -- Проверяем workspace.Entities или Players
+    local entitiesToCheck = {}
+    if workspace:FindFirstChild("Entities") then
+        for _, entity in pairs(workspace.Entities:GetChildren()) do
+            table.insert(entitiesToCheck, entity)
+        end
+    end
+    
+    -- Также проверяем обычных игроков
+    for _, player in pairs(Players:GetPlayers()) do
+        if player.Character then
+            table.insert(entitiesToCheck, player.Character)
+        end
+    end
+    
+    for _, player in pairs(entitiesToCheck) do
         if not IsPlayerValid(player) then continue end
         
         if not ESPInstances[player] then
@@ -685,21 +705,24 @@ local function UpdateESP()
         local Position, Health, MaxHealth
         local ScreenPosition, ScreenSize
         
-        if player and player.PrimaryPart then
-            local Vector, OnScreenCheck = Camera:WorldToViewportPoint(player.PrimaryPart.Position)
+        -- Находим PrimaryPart или HumanoidRootPart
+        local rootPart = player.PrimaryPart or player:FindFirstChild("HumanoidRootPart") or player:FindFirstChild("Torso") or player:FindFirstChild("UpperTorso")
+        
+        if rootPart then
+            local Vector, OnScreenCheck = Camera:WorldToViewportPoint(rootPart.Position)
             OnScreen = OnScreenCheck
             
-            local LocalPosition = LocalPlayer.Character and LocalPlayer.Character.PrimaryPart and LocalPlayer.Character.PrimaryPart.Position
+            local LocalPosition = LocalPlayer.Character and (LocalPlayer.Character.PrimaryPart or LocalPlayer.Character:FindFirstChild("HumanoidRootPart"))
             if LocalPosition then
-                Distance = (player.PrimaryPart.Position - LocalPosition).Magnitude
+                Distance = (rootPart.Position - LocalPosition.Position).Magnitude
             end
             
             Health, MaxHealth = GetHealth(player)
             
             if OnScreen and Distance < ESP.MaxDisplayDistance then
                 local BoundingBoxSize = player:GetExtentsSize()
-                local top = Camera:WorldToViewportPoint(player.PrimaryPart.Position + Vector3.new(0, BoundingBoxSize.Y/2, 0))
-                local bottom = Camera:WorldToViewportPoint(player.PrimaryPart.Position + Vector3.new(0, -BoundingBoxSize.Y/2, 0))
+                local top = Camera:WorldToViewportPoint(rootPart.Position + Vector3.new(0, BoundingBoxSize.Y/2, 0))
+                local bottom = Camera:WorldToViewportPoint(rootPart.Position + Vector3.new(0, -BoundingBoxSize.Y/2, 0))
                 
                 ScreenPosition = Vector2.new(top.X, top.Y)
                 local screenSize = bottom.Y - top.Y
@@ -714,10 +737,12 @@ local function UpdateESP()
         if OnScreen and Distance < ESP.MaxDisplayDistance and ESP.Enabled then
             local scaleFactor = math.clamp(1 - (Distance / ESP.MaxDisplayDistance), ESP.MinScaleFactor, 1)
             
+            -- ESP Boxes
             if ESP.BoxesEnabled then
                 local color = ESP.RainbowMode and RainbowColor or ESP.ESPColor
                 
                 if ESP.BoxStyle == "Full" then
+                    -- Full box
                     ESP_Data.Box.Left.From = ScreenPosition
                     ESP_Data.Box.Left.To = ScreenPosition + Vector2.new(0, ScreenSize.Y)
                     ESP_Data.Box.Left.Color = color
@@ -738,6 +763,7 @@ local function UpdateESP()
                     ESP_Data.Box.Bottom.Color = color
                     ESP_Data.Box.Bottom.Visible = true
                     
+                    -- Hide corner lines
                     ESP_Data.Box.TopLeft.Visible = false
                     ESP_Data.Box.TopRight.Visible = false
                     ESP_Data.Box.BottomLeft.Visible = false
@@ -745,6 +771,7 @@ local function UpdateESP()
                 else -- Corner
                     local cornerSize = ScreenSize.X * 0.2
                     
+                    -- Corner lines
                     ESP_Data.Box.TopLeft.From = ScreenPosition
                     ESP_Data.Box.TopLeft.To = ScreenPosition + Vector2.new(cornerSize, 0)
                     ESP_Data.Box.TopLeft.Color = color
@@ -765,6 +792,7 @@ local function UpdateESP()
                     ESP_Data.Box.BottomRight.Color = color
                     ESP_Data.Box.BottomRight.Visible = true
                     
+                    -- Vertical corner lines
                     ESP_Data.Box.Left.From = ScreenPosition
                     ESP_Data.Box.Left.To = ScreenPosition + Vector2.new(0, cornerSize)
                     ESP_Data.Box.Left.Color = color
@@ -791,17 +819,18 @@ local function UpdateESP()
                 end
             end
             
-            -- Show only name with fixed text size (no scaling based on distance)
+            -- Name display
             if ESP.ShowName then
                 ESP_Data.Name.Visible = true
                 ESP_Data.Name.Position = Vector2.new(Position.X, ScreenPosition.Y - ESP.TextSize - 5)
                 ESP_Data.Name.Text = player.Name
-                ESP_Data.Name.Size = ESP.TextSize -- Fixed size
+                ESP_Data.Name.Size = ESP.TextSize
                 ESP_Data.Name.Color = ESP.RainbowMode and RainbowColor or ESP.TextColor
             else
                 ESP_Data.Name.Visible = false
             end
             
+            -- Health Bar
             if ESP.HealthBarEnabled and Health and MaxHealth then
                 local HealthPercent = Health / MaxHealth
                 local healthBarHeight = ScreenSize.Y * scaleFactor
@@ -820,6 +849,7 @@ local function UpdateESP()
                 ESP_Data.HealthBar.Visible = false
             end
             
+            -- Tracers
             if ESP.TracersEnabled then
                 ESP_Data.Tracer.From = GetTracerOrigin()
                 ESP_Data.Tracer.To = Vector2.new(Position.X, Position.Y)
@@ -829,6 +859,7 @@ local function UpdateESP()
                 ESP_Data.Tracer.Visible = false
             end
         else
+            -- Hide all ESP elements
             for _, line in pairs(ESP_Data.Box) do
                 line.Visible = false
             end
@@ -838,8 +869,17 @@ local function UpdateESP()
         end
     end
     
+    -- Clean up removed players
     for player, espData in pairs(ESPInstances) do
-        if not player.Parent or not player:IsDescendantOf(workspace.Entities) then
+        local stillExists = false
+        for _, entity in pairs(entitiesToCheck) do
+            if entity == player then
+                stillExists = true
+                break
+            end
+        end
+        
+        if not stillExists then
             HandlePlayerRemoval(player)
         end
     end
@@ -928,12 +968,12 @@ local function ShowNotification(message, duration)
     TweenService:Create(notificationLabel, TweenInfo.new(0.5), {TextTransparency = 0}):Play()
 
     -- Wait for duration
-    wait(duration)
+    task.wait(duration)
 
     -- Fade-out animation
     TweenService:Create(notificationFrame, TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play()
     TweenService:Create(notificationLabel, TweenInfo.new(0.5), {TextTransparency = 1}):Play()
-    wait(0.5)
+    task.wait(0.5)
 
     notificationGui:Destroy()
 end
@@ -947,8 +987,11 @@ local function UpdateTargetFrame()
     local closestDistance = math.huge
 
     for player, _ in pairs(nearbyPlayers) do
-        if player and player.PrimaryPart and LocalPlayer.Character and LocalPlayer.Character.PrimaryPart then
-            local distance = (player.PrimaryPart.Position - LocalPlayer.Character.PrimaryPart.Position).Magnitude
+        local rootPart = player.PrimaryPart or player:FindFirstChild("HumanoidRootPart")
+        local localRoot = LocalPlayer.Character and (LocalPlayer.Character.PrimaryPart or LocalPlayer.Character:FindFirstChild("HumanoidRootPart"))
+        
+        if rootPart and localRoot then
+            local distance = (rootPart.Position - localRoot.Position).Magnitude
             if distance < closestDistance then
                 closestDistance = distance
                 closestPlayer = player
@@ -967,16 +1010,34 @@ end
 
 -- Check for nearby players
 local function CheckNearbyPlayers()
-    for _, player in pairs(workspace.Entities:GetChildren()) do
+    local entitiesToCheck = {}
+    if workspace:FindFirstChild("Entities") then
+        for _, entity in pairs(workspace.Entities:GetChildren()) do
+            table.insert(entitiesToCheck, entity)
+        end
+    end
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        if player.Character then
+            table.insert(entitiesToCheck, player.Character)
+        end
+    end
+
+    for _, player in pairs(entitiesToCheck) do
         if not IsPlayerValid(player) then continue end
 
-        if player and player.PrimaryPart and LocalPlayer.Character and LocalPlayer.Character.PrimaryPart then
-            local distance = (player.PrimaryPart.Position - LocalPlayer.Character.PrimaryPart.Position).Magnitude
+        local rootPart = player.PrimaryPart or player:FindFirstChild("HumanoidRootPart")
+        local localRoot = LocalPlayer.Character and (LocalPlayer.Character.PrimaryPart or LocalPlayer.Character:FindFirstChild("HumanoidRootPart"))
+        
+        if rootPart and localRoot then
+            local distance = (rootPart.Position - localRoot.Position).Magnitude
             if distance <= 70 then
                 if not nearbyPlayers[player] then
                     nearbyPlayers[player] = true
                     if not notificationCooldown then
-                        ShowNotification("ATTENTION :// PLAYER FOUND NEARBY", 2)
+                        task.spawn(function()
+                            ShowNotification("ATTENTION :// PLAYER FOUND NEARBY", 2)
+                        end)
                         notificationCooldown = true
                         task.delay(5, function()
                             notificationCooldown = false
@@ -997,22 +1058,53 @@ RunService.RenderStepped:Connect(function()
     CheckNearbyPlayers()
 end)
 
-for _, player in pairs(workspace.Entities:GetChildren()) do
-    if IsPlayerValid(player) then
-        ESPInstances[player] = CreateESP(player)
+-- Initialize ESP for existing entities
+local function InitializeESP()
+    if workspace:FindFirstChild("Entities") then
+        for _, player in pairs(workspace.Entities:GetChildren()) do
+            if IsPlayerValid(player) then
+                ESPInstances[player] = CreateESP(player)
+            end
+        end
+    end
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        if player.Character and IsPlayerValid(player.Character) then
+            ESPInstances[player.Character] = CreateESP(player.Character)
+        end
     end
 end
 
-workspace.Entities.ChildAdded:Connect(function(player)
-    if IsPlayerValid(player) then
-        ESPInstances[player] = CreateESP(player)
+InitializeESP()
+
+-- Event listeners
+if workspace:FindFirstChild("Entities") then
+    workspace.Entities.ChildAdded:Connect(function(player)
+        if IsPlayerValid(player) then
+            ESPInstances[player] = CreateESP(player)
+        end
+    end)
+
+    workspace.Entities.ChildRemoved:Connect(function(player)
+        HandlePlayerRemoval(player)
+    end)
+end
+
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function(character)
+        if IsPlayerValid(character) then
+            ESPInstances[character] = CreateESP(character)
+        end
+    end)
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+    if player.Character then
+        HandlePlayerRemoval(player.Character)
     end
 end)
 
-workspace.Entities.ChildRemoved:Connect(function(player)
-    HandlePlayerRemoval(player)
-end)
-
+-- Cleanup on game close
 game:BindToClose(function()
     for _, esp in pairs(ESPInstances) do
         for _, line in pairs(esp.Box) do
@@ -1031,4 +1123,6 @@ game:BindToClose(function()
 end)
 
 -- Show the initial notification
-ShowNotification("Simplified ESP Loaded!", 3)
+task.spawn(function()
+    ShowNotification("Simplified ESP Loaded!", 3)
+end)
